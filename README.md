@@ -1,2 +1,1 @@
-# TimeSeriesModel
-时间序列模型学习
+学习抽取式摘要的小demo
