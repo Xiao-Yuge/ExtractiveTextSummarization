@@ -127,11 +127,49 @@ class SummaryModel:
             sentence_graph.add_edges_from(word_tuples)
         return sentence_graph
 
+    def build_text_rank_summary_old(self, text):
+        """
+        旧版本，使用句子相似度构建图
+        """
+        sentences = self.split_sentence(text)
+        matrix = self.get_correlation_matrix(sentences)
+        sentence_graph = networkx.from_numpy_matrix(matrix)
+        scores = sorted(networkx.pagerank(sentence_graph).items(), key=lambda x: x[1], reverse=True)
+        summary_len = 0
+        summary_set = set()
+        for i, _ in scores:
+            if summary_len < self.constraint:
+                summary_len += len(sentences[i])
+                summary_set.add(sentences[i])
+            else:
+                break
+        # 将句子按原顺序排序
+        summary = []
+        for sentence in sentences:
+            if sentence in summary_set:
+                summary.append(sentence)
+        return ','.join(summary)
+
+    def get_correlation_matrix(self, sentences):
+        """
+        生成句子相关性的共现矩阵
+        :param sentences:句子
+        :return: 相似度共现矩阵
+        """
+        matrix = np.zeros((len(sentences), len(sentences)))
+        for i, s_r in enumerate(sentences):
+            sr_embedding = self._sentence_embedding(s_r)
+            for j, s_c in enumerate(sentences):
+                if i > j:
+                    sc_embedding = self._sentence_embedding(s_c)
+                    matrix[i][j] = cosine_similarity(sr_embedding.reshape(1, -1), sc_embedding.reshape((1, -1)))[0][0]
+        return matrix
+
 
 if __name__ == "__main__":
     from build_freq import get_freq
     from build_w2v import get_w2v_model
-    model = SummaryModel(get_freq(), get_w2v_model(), constraint=200)
+    model = SummaryModel(get_freq(), get_w2v_model(), constraint=150)
     text = """
 据报道，英伟达计划以400亿美元收购英国芯片设计公司Arm。但这笔交易在中国面临着新的难题。据报道，Arm的中国合资公司首席执行官吴雄昂（Allen Wu）持有该合资公司17%的股份。根据公司注册文件，吴雄昂于去年11月接手了一家关键投资公司，目前控制着Arm中国六分之四的股东。
 
